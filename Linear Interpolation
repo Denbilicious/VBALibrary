@@ -1,0 +1,33 @@
+'This function is for linearly interpolating between two sets of values. 
+'The function preceeding it is integral for the main function to work.
+'Code and explanation follows.
+
+
+Function RealEqual(X, Y) As Boolean
+        RealEqual = Abs(X - Y) <= 0.00000001
+        End Function
+
+Function LinearInterp(XVals, YVals, TargetVal)
+    Dim MatchVal
+    On Error GoTo ErrXit
+    With Application.WorksheetFunction
+    MatchVal = .Match(TargetVal, XVals, 1)
+    If MatchVal = XVals.Cells.Count _
+            And RealEqual(TargetVal, .index(XVals, MatchVal)) Then
+        LinearInterp = .index(YVals, MatchVal)
+    Else
+        LinearInterp = .index(YVals, MatchVal) _
+            + (.index(YVals, MatchVal + 1) - .index(YVals, MatchVal)) _
+                / (.index(XVals, MatchVal + 1) _
+                    - .index(XVals, MatchVal)) _
+                * (TargetVal - .index(XVals, MatchVal))
+        End If
+        End With
+    Exit Function
+ErrXit:
+    With Err
+    LinearInterp = "Check formula"
+        End With
+    End Function
+
+'Added to GitHub repo 08/09/2017 by Stephen Denbigh (Denbilicious)
