@@ -1,0 +1,37 @@
+'This code is for hiding/showing columns in excel (usually raters) based on certain values.
+'This code should be inserted in a new module (usually called "Functions")
+'In this example of the code the sheet using the function is named "Report"
+'The relevant sheet should have the following code in it
+
+Private Sub Worksheet_Activate()
+
+Report_Filter
+
+End Sub
+
+'Code and explanation follows.
+
+Sub Report_Filter()
+Application.ScreenUpdating = False
+
+'The first named range to check is "Filter_EmailQuoteExtra2". If this range is non-zero then columns E through E (effectively column E)
+'will be un-hidden. Otherwise they will hide.
+
+If Range("Filter_EmailQuoteExtra2").Value = 0 Then
+Range("E:E").EntireColumn.Hidden = True
+   Else: Range("E:E").EntireColumn.Hidden = False
+   End If
+   
+'The next named range to check is "Filter_EmailQuoteExtra1". If this range is non-zero then columns D through D (effectively column D)
+'will be un-hidden. Otherwise they will hide.
+
+If Range("Filter_EmailQuoteExtra1").Value = 0 Then
+Range("D:D").EntireColumn.Hidden = True
+   Else: Range("D:D").EntireColumn.Hidden = False
+   End If
+
+Application.ScreenUpdating = True
+
+End Sub
+
+'Added to GitHub repo 08/09/2017 by Stephen Denbigh (Denbilicious)
