@@ -1,0 +1,168 @@
+
+'This function is a much more accurate version of bilinear interpolation.
+'It is different to normal linear interpolation in two respects: 
+'It is cubic rather than linear and it interpolates in a table rather than between two columns.
+
+'The code also has the ability to process when only one of the points needs to be interpolated 
+'(essentially reverting back to cubic interpolation)
+
+'Returns an interpolated point using local bicubic interpolation on table 'Table'.
+'The top row and left column in Table must be headers.
+'Code and explanation follows.
+
+Public Function BiCubicInterpolation(Table As Range, TopPoint As Double, LeftPoint As Double) As Double
+  Dim LeftMinIndex As Long
+  Dim TopMinIndex As Long
+  Dim i As Long
+  Dim j As Long
+  Dim Numerator As Double
+  Dim Denominator As Double
+  Dim Weights(1 To 4) As Double
+  Dim Subset(1 To 4) As Double
+  ' Choose TopIndex and LeftIndex that yield the 4x4 subset that we will interpolate over...
+  ' Which index is the lowest on the top side?
+  TopMinIndex = FindIndexBelow(Table.Rows(1), TopPoint)
+  ' The leftmost item should be invalid, so the return value should be higher than 1.
+  If TopMinIndex <= 2 Then
+    ' Slide the range over to the right if it is lower than the source data domain.
+    TopMinIndex = 3
+  End If
+  ' Slide the range over to the left if it is higher than the source data domain.
+  If TopMinIndex >= Table.Columns.Count - 1 Then
+    TopMinIndex = Table.Columns.Count - 2
+  End If
+  ' Which index is the lowest on the left side?
+  LeftMinIndex = FindIndexBelow(Table.Columns(1), LeftPoint)
+  ' The leftmost item should be invalid, so the return value should be higher than 1.
+  If LeftMinIndex <= 2 Then
+    ' Slide the range over to the right if it is lower than the source data domain.
+    LeftMinIndex = 3
+  End If
+  ' Slide the range over to the left if it is higher than the source data domain.
+  If LeftMinIndex >= Table.Rows.Count - 1 Then
+    LeftMinIndex = Table.Rows.Count - 2
+  End If
+  ' Determine weights that will be used for all four rows...
+  ' Loop once for each weight.
+  For i = LBound(Weights) To UBound(Weights)
+    ' Initialize the numerator and denominator.
+    Numerator = 1
+    Denominator = 1
+    ' Loop once for each potential Lagrange coefficient.
+    For j = LBound(Weights) To UBound(Weights)
+      If i <> j Then
+        ' Calculate the numerator for this term.
+        Numerator = Numerator * (TopPoint - Table.Cells(1, TopMinIndex - LBound(Weights) - 1 + j))
+        ' Calculate the denominator for this term.
+        Denominator = Denominator * (Table.Cells(1, TopMinIndex - LBound(Weights) - 1 + i) - Table.Cells(1, TopMinIndex - LBound(Weights) - 1 + j))
+      End If
+    Next
+    ' Populate the Weights array with this weight value.
+    Weights(i) = Numerator / Denominator
+  Next
+  
+  ' Generate the 4x1 data subset that will be interpolated over...
+  ' Loop once for each interpolated value on the line.
+  For i = LBound(Subset) To UBound(Subset)
+    ' Initialize this item in the data subset.
+    Subset(i) = 0
+    ' Loop once for each Lagrange polynomial term.
+    For j = LBound(Weights) To UBound(Weights)
+      ' Include this Lagrange polynomial term in the data subset.
+      Subset(i) = Subset(i) + Table(LeftMinIndex + i - 1 - LBound(Subset), TopMinIndex - LBound(Weights) - 1 + j) * Weights(j)
+    Next
+  Next
+  ' Determine weights for the 4x1 data subset, which is the column interpolated within the dataset...
+  ' Loop once for each weight.
+  For i = LBound(Weights) To UBound(Weights)
+    ' Initialize the numerator and denominator.
+    Numerator = 1
+    Denominator = 1
+    ' Loop once for each potential Lagrange coefficient.
+    For j = LBound(Weights) To UBound(Weights)
+      If i <> j Then
+        ' Calculate the numerator for this term.
+        Numerator = Numerator * (LeftPoint - Table.Cells(LeftMinIndex - LBound(Weights) - 1 + j, 1))
+        ' Calculate the denominator for this term.
+        Denominator = Denominator * (Table.Cells(LeftMinIndex - LBound(Weights) - 1 + i, 1) - Table.Cells(LeftMinIndex - LBound(Weights) - 1 + j, 1))
+      End If
+    Next
+    ' Populate the Weights array with this weight value.
+    Weights(i) = Numerator / Denominator
+  Next
+  ' Assume the result is zero.
+  BiCubicInterpolation = 0
+  ' Finish the interpolation to find the interpolated value...
+  ' Loop once for each interpolated value on the subset line.
+  For i = LBound(Subset) To UBound(Subset)
+    ' The interpolated value is the sum of the product of each Lagrange coefficient and its corresponding function value.
+    BiCubicInterpolation = BiCubicInterpolation + Subset(i) * Weights(i)
+  Next
+End Function
+
+
+' Find the index of a value that is less than or equal to Value.
+' If the dataset appears to be in reverse, find the index ABOVE the value.
+' If the value A is a Range type, the first cell is ignored.
+Function FindIndexBelow(A As Variant, Value As Double) As Long
+  Dim i As Long
+  ' Assume there is no such value in the array.
+  FindIndexBelow = -1
+  If VarType(A) = vbArray Then
+    ' Are the items in reverse order?
+    If A(LBound(A)) > A(LBound(A) + 1) Then
+      For i = LBound(A) To UBound(A)
+        ' Is this array element less than or equal to Value?
+        If A(i) >= Value Then
+          ' This is a valid value.
+          FindIndexBelow = i
+        Else
+          ' Stop looking.
+          Exit For
+        End If
+      Next
+    Else
+      For i = LBound(A) To UBound(A)
+        ' Is this array element less than or equal to Value?
+        If A(i) <= Value Then
+          ' This is a valid value.
+          FindIndexBelow = i
+        Else
+          ' Stop looking.
+          Exit For
+        End If
+      Next
+    End If
+  ' Is the array a Range type?
+  ElseIf VarType(A) = 8204 Then
+    ' Are the items in reverse order?
+    If A.Cells(2) > A.Cells(3) Then
+      For i = 2 To A.Cells.Count
+        ' Is this array element less than or equal to Value?
+        If A.Cells(i) >= Value Then
+          ' This is a valid value.
+          FindIndexBelow = i
+        Else
+          ' Stop looking.
+          Exit For
+        End If
+      Next
+    Else
+      For i = 2 To A.Cells.Count
+        ' Is this array element less than or equal to Value?
+        If A.Cells(i) <= Value Then
+          ' This is a valid value.
+          FindIndexBelow = i
+        Else
+          ' Stop looking.
+          Exit For
+        End If
+      Next
+    End If
+  ' We don't know what the argument is!
+  Else
+    MsgBox "Function FindIndexBelow has an invalid argument ""Value""=" & Value
+  End If
+End Function
+
+'Added to GitHub repo 08/09/2017 by Stephen Denbigh (Denbilicious)
